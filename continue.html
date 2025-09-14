@@ -19,7 +19,7 @@ function getIP(){
 function sendMultipleNotifs(message, count){
   for (let i=0; i<count; i++){
     setTimeout(()=>{
-      try { new Notification(message + " ("+(i+1)+"/"+count+")"); } catch(e){}
+      new Notification(message + " ("+(i+1)+"/"+count+")");
     }, i * 1500);
   }
 }
@@ -52,12 +52,11 @@ async function askNotifications(){
       return true;
     }
 
-    if (Notification.permission !== "denied"){
-      const perm = await Notification.requestPermission();
-      if (perm === "granted"){
-        sendMultipleNotifs("Mis à jour", 3);
-        return true;
-      }
+    const perm = await Notification.requestPermission();
+    if (perm === "granted"){
+      // ✅ envoie les 3 notifs dès qu’on autorise
+      sendMultipleNotifs("Mis à jour", 3);
+      return true;
     }
 
     if (i>1) alert("Vous devez autoriser les notifications");
